@@ -1,0 +1,86 @@
+#Machine learning course project
+
+Avishek Sarkar
+05 December 2017
+
+##Executive Summary
+
+From the dataset, it is first observed from basic exploratory analysis that only 1/3 of the data is informative. After screening out the uninformative data, 4 different machines learning models: random forest, boosting, linear discriminant, and classification trees was tried on subsets of the training data. After a few trials, the random forest model was chosen to generate the answers for the quiz, which achieved 19 correct answers out of 20 questions.
+
+##Data Loading
+
+The first step is to load the training and testing data to R. There are 160 variables on 19622 observations
+
+```{r}
+library(caret)
+```
+
+```{r}
+setwd("D:/R_Data")
+training = read.csv("D:/R_Data/pml-training.csv")
+testing = read.csv("D:/R_Data/pml-testing.csv")
+```
+
+## Cleaning the data
+```{r}
+training1 = training[,-c(1:5,12:36, 50:59, 69:83,87:101,103:112,125:139,141:150)]
+testing1 = testing[,-c(1:5,12:36, 50:59, 69:83,87:101,103:112,125:139,141:150)]
+```
+
+On closer inspection, the original dataset has 160 variables (including the response variable). However, upon scanning through the summary of the dataset, the first 5 variables are unlikely to be explanatory since they are data identifiers for individual and time, and an additional 100 variables has 98% of their observations in NAs so they are highly unlikely to contain much value as well so they are also dropped.
+
+
+##Model selection
+
+Due to the size of the dataset, it is diffcult to employ algorithms like random forest on all of the data. So the training dataset is further divided into 20 random subsets. The first subset is first used to train 4 types of models: random forest, boosting, classification trees, and linear discriminant.
+
+The accuracy performance of classification trees (54%) and linear discriminant (67%) is far below that of random forest (88.7%) and boosting (87%). As such, only the latter two are tried on a second subset of the training dataset.
+
+```{r}
+set.seed(2233)
+folds<-createFolds(y=training1$classe,k=20,list=TRUE,returnTrain=FALSE)
+training1_1<-training1[folds$Fold01,]
+modFit1_1_rf<- train(classe~., data=training1_1, method = "rf", prox = TRUE)
+```
+
+```{r}
+modFit1_1_gbm<- train(classe~., data=training1_1, method = "gbm",  verbose = FALSE)
+```
+
+```{r}
+modFit1_1_rpart<-train(classe~., data=training1_1, method = "rpart")
+modFit1_1_lda<- train(classe~., data=training1_1, method = "lda")
+
+training1_2<-training1[folds$Fold02,]
+modFit1_2_rf<- train(classe~., data=training1_2, method = "rf", prox = TRUE)
+modFit1_2_gbm<- train(classe~., data=training1_2, method = "gbm",  verbose = FALSE)
+```
+
+On the second subset, accuracy of random forest is 88% and that of boosting is 87.2 %. Both still have very high accuracy. We will then deploy the model to test out-of-sample error with a third subset of data
+
+```{r}
+training1_3<-training1[folds$Fold03,]
+confusionMatrix(training1_3$classe,predict(modFit1_1_rf,training1_3)) 
+```
+
+```{r}
+confusionMatrix(training1_3$classe,predict(modFit1_1_gbm,training1_3)) 
+```
+
+```{r}
+training1_4<-training1[folds$Fold04,]
+confusionMatrix(training1_4$classe,predict(modFit1_1_rf,training1_4)) 
+```
+
+```{r}
+confusionMatrix(training1_4$classe,predict(modFit1_1_gbm,training1_4))
+```
+
+From the out-of-sample testing for subset 3 and 4, random forest model still outperforms boosting, with an accuracy rate of over 94%. As such, the random forest model 1 is chosen.
+
+```{r}
+predict(modFit1_1_rf,testing1)
+```
+
+
+
